@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -27,6 +28,11 @@ export default function Dashboard() {
     checkUser();
   }, []);
 
+
+  // =====================================
+  // CHECK USER
+  // =====================================
+
   const checkUser = async () => {
     const {
       data: { user },
@@ -44,6 +50,11 @@ export default function Dashboard() {
     setLoading(false);
   };
 
+
+  // =====================================
+  // GET PROFILE
+  // =====================================
+
   const getProfile = async () => {
     try {
       const {
@@ -55,55 +66,110 @@ export default function Dashboard() {
         return;
       }
 
-      const response = await fetch("/api/profile", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      console.log("API status:", response.status);
-      console.log(
-        "API content type:",
-        response.headers.get("content-type")
+      const response = await fetch(
+        "/api/profile",
+        {
+          method: "GET",
+          headers: {
+            Authorization:
+              `Bearer ${session.access_token}`,
+          },
+        }
       );
 
-      const text = await response.text();
+      console.log(
+        "API status:",
+        response.status
+      );
 
-      console.log("API response:", text);
+      console.log(
+        "API content type:",
+        response.headers.get(
+          "content-type"
+        )
+      );
+
+      const text =
+        await response.text();
+
+      console.log(
+        "API response:",
+        text
+      );
 
       if (!text) {
-        setMessage("API returned an empty response.");
+        setMessage(
+          "API returned an empty response."
+        );
         return;
       }
 
-      const result = JSON.parse(text);
+      const result =
+        JSON.parse(text);
 
       if (!response.ok) {
-        setMessage(result.error || "Something went wrong");
+        setMessage(
+          result.error ||
+          "Something went wrong"
+        );
         return;
       }
 
-      const data = result.profile;
+      const data =
+        result.profile;
+
+      if (!data) {
+        setMessage(
+          "Profile data not found."
+        );
+        return;
+      }
 
       setProfile(data);
 
-      setFullName(data.full_name || "");
-      setPhone(data.phone || "");
-      setLocation(data.location || "");
-      setSkills(data.skills || "");
-      setAbout(data.about || "");
+      setFullName(
+        data.full_name || ""
+      );
+
+      setPhone(
+        data.phone || ""
+      );
+
+      setLocation(
+        data.location || ""
+      );
+
+      setSkills(
+        data.skills || ""
+      );
+
+      setAbout(
+        data.about || ""
+      );
 
     } catch (error) {
-      console.error("GET PROFILE ERROR:", error);
-      setMessage(error.message);
+      console.error(
+        "GET PROFILE ERROR:",
+        error
+      );
+
+      setMessage(
+        error.message
+      );
     }
   };
+
+
+  // =====================================
+  // SAVE PROFILE
+  // =====================================
 
   const handleSave = async (e) => {
     e.preventDefault();
 
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
     setSaving(true);
     setMessage("");
@@ -118,46 +184,93 @@ export default function Dashboard() {
         return;
       }
 
-      const formData = new FormData();
+      const formData =
+        new FormData();
 
-      formData.append("fullName", fullName);
-      formData.append("phone", phone);
-      formData.append("location", location);
-      formData.append("skills", skills);
-      formData.append("about", about);
+      formData.append(
+        "fullName",
+        fullName
+      );
+
+      formData.append(
+        "phone",
+        phone
+      );
+
+      formData.append(
+        "location",
+        location
+      );
+
+      formData.append(
+        "skills",
+        skills
+      );
+
+      formData.append(
+        "about",
+        about
+      );
 
       if (profileImage) {
-        formData.append("profileImage", profileImage);
+        formData.append(
+          "profileImage",
+          profileImage
+        );
       }
 
       if (cvFile) {
-        formData.append("cvFile", cvFile);
+        formData.append(
+          "cvFile",
+          cvFile
+        );
       }
 
-      const response = await fetch("/api/profile", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: formData,
-      });
+      const response =
+        await fetch(
+          "/api/profile",
+          {
+            method: "PUT",
+            headers: {
+              Authorization:
+                `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          }
+        );
 
-      const text = await response.text();
+      const text =
+        await response.text();
 
-      console.log("PUT API status:", response.status);
-      console.log("PUT API response:", text);
+      console.log(
+        "PUT API status:",
+        response.status
+      );
+
+      console.log(
+        "PUT API response:",
+        text
+      );
 
       if (!text) {
-        throw new Error("API returned an empty response.");
+        throw new Error(
+          "API returned an empty response."
+        );
       }
 
-      const result = JSON.parse(text);
+      const result =
+        JSON.parse(text);
 
       if (!response.ok) {
-        throw new Error(result.error || "Something went wrong");
+        throw new Error(
+          result.error ||
+          "Something went wrong"
+        );
       }
 
-      setMessage("Profile updated successfully!");
+      setMessage(
+        "Profile updated successfully!"
+      );
 
       setProfileImage(null);
       setCvFile(null);
@@ -165,18 +278,34 @@ export default function Dashboard() {
       await getProfile();
 
     } catch (error) {
-      console.error("SAVE PROFILE ERROR:", error);
-      setMessage(error.message);
+      console.error(
+        "SAVE PROFILE ERROR:",
+        error
+      );
+
+      setMessage(
+        error.message
+      );
     }
 
     setSaving(false);
   };
+
+
+  // =====================================
+  // LOGOUT
+  // =====================================
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
 
     router.push("/login");
   };
+
+
+  // =====================================
+  // LOADING
+  // =====================================
 
   if (loading) {
     return (
@@ -185,6 +314,11 @@ export default function Dashboard() {
       </div>
     );
   }
+
+
+  // =====================================
+  // DASHBOARD
+  // =====================================
 
   return (
     <main className="dashboard-page">
@@ -195,14 +329,36 @@ export default function Dashboard() {
           Profile<span>Manager</span>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="logout-button"
+        <div
+          style={{
+            display: "flex",
+            gap: "1rem",
+            alignItems: "center",
+          }}
         >
-          Logout
-        </button>
+
+          <Link
+            href="/users"
+            style={{
+              color: "#6366f1",
+              fontWeight: "600",
+              textDecoration: "none",
+            }}
+          >
+            View All Users
+          </Link>
+
+          <button
+            onClick={handleLogout}
+            className="logout-button"
+          >
+            Logout
+          </button>
+
+        </div>
 
       </nav>
+
 
       <section className="dashboard-container">
 
@@ -219,12 +375,14 @@ export default function Dashboard() {
             </h1>
 
             <p>
-              Keep your professional information updated.
+              Keep your professional
+              information updated.
             </p>
 
           </div>
 
         </div>
+
 
         <div className="profile-card">
 
@@ -232,15 +390,19 @@ export default function Dashboard() {
 
             <div>
 
-              <h2>Personal Information</h2>
+              <h2>
+                Personal Information
+              </h2>
 
               <p>
-                Update your profile details below.
+                Update your profile
+                details below.
               </p>
 
             </div>
 
           </div>
+
 
           <form onSubmit={handleSave}>
 
@@ -248,55 +410,74 @@ export default function Dashboard() {
 
               <div className="form-group">
 
-                <label>Full Name</label>
+                <label>
+                  Full Name
+                </label>
 
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) =>
-                    setFullName(e.target.value)
+                    setFullName(
+                      e.target.value
+                    )
                   }
                   placeholder="Your full name"
                 />
 
               </div>
 
+
               <div className="form-group">
 
-                <label>Email</label>
+                <label>
+                  Email
+                </label>
 
                 <input
                   type="email"
-                  value={user?.email || ""}
+                  value={
+                    user?.email || ""
+                  }
                   disabled
                 />
 
               </div>
 
+
               <div className="form-group">
 
-                <label>Phone</label>
+                <label>
+                  Phone
+                </label>
 
                 <input
                   type="text"
                   value={phone}
                   onChange={(e) =>
-                    setPhone(e.target.value)
+                    setPhone(
+                      e.target.value
+                    )
                   }
                   placeholder="Your phone number"
                 />
 
               </div>
 
+
               <div className="form-group">
 
-                <label>Location</label>
+                <label>
+                  Location
+                </label>
 
                 <input
                   type="text"
                   value={location}
                   onChange={(e) =>
-                    setLocation(e.target.value)
+                    setLocation(
+                      e.target.value
+                    )
                   }
                   placeholder="Your location"
                 />
@@ -305,29 +486,39 @@ export default function Dashboard() {
 
             </div>
 
+
             <div className="form-group">
 
-              <label>Skills</label>
+              <label>
+                Skills
+              </label>
 
               <input
                 type="text"
                 value={skills}
                 onChange={(e) =>
-                  setSkills(e.target.value)
+                  setSkills(
+                    e.target.value
+                  )
                 }
                 placeholder="React, Next.js, JavaScript, SQL..."
               />
 
             </div>
 
+
             <div className="form-group">
 
-              <label>About You</label>
+              <label>
+                About You
+              </label>
 
               <textarea
                 value={about}
                 onChange={(e) =>
-                  setAbout(e.target.value)
+                  setAbout(
+                    e.target.value
+                  )
                 }
                 placeholder="Tell something about yourself..."
                 rows="5"
@@ -335,11 +526,17 @@ export default function Dashboard() {
 
             </div>
 
+
             <div className="upload-section">
+
+
+              {/* PROFILE PHOTO */}
 
               <div className="upload-box">
 
-                <h3>Profile Photo</h3>
+                <h3>
+                  Profile Photo
+                </h3>
 
                 <p>
                   Upload JPG, JPEG or PNG
@@ -349,13 +546,18 @@ export default function Dashboard() {
                   type="file"
                   accept="image/png,image/jpeg,image/jpg"
                   onChange={(e) =>
-                    setProfileImage(e.target.files[0])
+                    setProfileImage(
+                      e.target.files?.[0] || null
+                    )
                   }
                 />
 
-                {profile?.profile_image && (
+
+                {profile?.avatar_url && (
                   <img
-                    src={profile.profile_image}
+                    src={
+                      profile.avatar_url
+                    }
                     alt="Profile"
                     className="profile-preview"
                   />
@@ -363,9 +565,14 @@ export default function Dashboard() {
 
               </div>
 
+
+              {/* CV */}
+
               <div className="upload-box">
 
-                <h3>CV / Resume</h3>
+                <h3>
+                  CV / Resume
+                </h3>
 
                 <p>
                   Upload your PDF resume
@@ -375,13 +582,18 @@ export default function Dashboard() {
                   type="file"
                   accept="application/pdf"
                   onChange={(e) =>
-                    setCvFile(e.target.files[0])
+                    setCvFile(
+                      e.target.files?.[0] || null
+                    )
                   }
                 />
 
-                {profile?.cv_url && (
+
+                {profile?.resume_url && (
                   <a
-                    href={profile.cv_url}
+                    href={
+                      profile.resume_url
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="cv-link"
@@ -394,6 +606,7 @@ export default function Dashboard() {
 
             </div>
 
+
             <button
               type="submit"
               className="save-button"
@@ -405,6 +618,7 @@ export default function Dashboard() {
             </button>
 
           </form>
+
 
           {message && (
             <div className="success-message">

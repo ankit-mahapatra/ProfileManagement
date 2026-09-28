@@ -46,6 +46,11 @@ async function getAuth(request) {
   };
 }
 
+
+// =====================================
+// GET FILE PATH FROM PUBLIC URL
+// =====================================
+
 function getFilePath(url) {
   if (!url) {
     return null;
@@ -54,14 +59,94 @@ function getFilePath(url) {
   const marker =
     "/storage/v1/object/public/profile-files/";
 
-  const index = url.indexOf(marker);
+  const cleanUrl = url.split("?")[0];
+
+  const index = cleanUrl.indexOf(marker);
 
   if (index === -1) {
     return null;
   }
 
-  return url.substring(index + marker.length);
+  return cleanUrl.substring(index + marker.length);
 }
+
+
+// =====================================
+// DELETE OLD PROFILE FILES
+// =====================================
+
+async function deleteOldFiles(supabase, userId, type, currentFileName) {
+  try {
+    const { data: files, error: listError } =
+      await supabase.storage
+        .from("profile-files")
+        .list(userId, {
+          limit: 1000,
+          offset: 0,
+        });
+
+    if (listError) {
+      console.error(
+        `Error listing old ${type} files:`,
+        listError
+      );
+
+      return;
+    }
+
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    let pattern;
+
+    if (type === "profile") {
+      pattern = /^profile(-|\.)/i;
+    } else {
+      pattern = /^cv(-|\.)/i;
+    }
+
+    const filesToDelete = files
+      .filter((file) => {
+        return (
+          pattern.test(file.name) &&
+          file.name !== currentFileName
+        );
+      })
+      .map((file) => `${userId}/${file.name}`);
+
+    if (filesToDelete.length === 0) {
+      return;
+    }
+
+    console.log(
+      `Deleting old ${type} files:`,
+      filesToDelete
+    );
+
+    const { error: deleteError } =
+      await supabase.storage
+        .from("profile-files")
+        .remove(filesToDelete);
+
+    if (deleteError) {
+      console.error(
+        `Error deleting old ${type} files:`,
+        deleteError
+      );
+    } else {
+      console.log(
+        `Old ${type} files deleted successfully`
+      );
+    }
+  } catch (error) {
+    console.error(
+      `DELETE OLD ${type.toUpperCase()} FILES ERROR:`,
+      error
+    );
+  }
+}
+
 
 // =====================================
 // GET PROFILE
@@ -73,8 +158,12 @@ export async function GET(request) {
 
     if (!auth) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
@@ -97,12 +186,17 @@ export async function GET(request) {
       );
 
       return NextResponse.json(
-        { error: profileError.message },
-        { status: 400 }
+        {
+          error: profileError.message,
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     let profile = profiles?.[0] || null;
+
 
     // =====================================
     // CREATE PROFILE IF IT DOES NOT EXIST
@@ -125,8 +219,8 @@ export async function GET(request) {
           location: "",
           skills: "",
           about: "",
-          profile_image: null,
-          cv_url: null,
+          avatar_url: null,
+          resume_url: null,
         })
         .select()
         .single();
@@ -138,8 +232,12 @@ export async function GET(request) {
         );
 
         return NextResponse.json(
-          { error: createError.message },
-          { status: 400 }
+          {
+            error: createError.message,
+          },
+          {
+            status: 400,
+          }
         );
       }
 
@@ -161,11 +259,16 @@ export async function GET(request) {
     );
 
     return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
+      {
+        error: error.message,
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
+
 
 // =====================================
 // UPDATE PROFILE
@@ -181,20 +284,20 @@ export async function PUT(request) {
 
     if (!auth) {
       return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
     const { user, supabase } = auth;
 
-    console.log(
-      "User:",
-      user.id
-    );
+    console.log("User:", user.id);
 
-    const formData =
-      await request.formData();
+    const formData = await request.formData();
 
     const fullName =
       formData.get("fullName") || "";
@@ -219,15 +322,14 @@ export async function PUT(request) {
 
     console.log(
       "Profile image:",
-      profileImage?.name ||
-        "No new image"
+      profileImage?.name || "No new image"
     );
 
     console.log(
       "CV:",
-      cvFile?.name ||
-        "No new CV"
+      cvFile?.name || "No new CV"
     );
+
 
     // =====================================
     // GET OLD PROFILE
@@ -248,13 +350,18 @@ export async function PUT(request) {
       );
 
       return NextResponse.json(
-        { error: profileError.message },
-        { status: 400 }
+        {
+          error: profileError.message,
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     let oldProfile =
       profiles?.[0] || null;
+
 
     // =====================================
     // CREATE PROFILE IF IT DOES NOT EXIST
@@ -277,8 +384,8 @@ export async function PUT(request) {
           location: location,
           skills: skills,
           about: about,
-          profile_image: null,
-          cv_url: null,
+          avatar_url: null,
+          resume_url: null,
         })
         .select()
         .single();
@@ -290,8 +397,12 @@ export async function PUT(request) {
         );
 
         return NextResponse.json(
-          { error: createError.message },
-          { status: 400 }
+          {
+            error: createError.message,
+          },
+          {
+            status: 400,
+          }
         );
       }
 
@@ -303,24 +414,17 @@ export async function PUT(request) {
       );
     }
 
-    console.log(
-      "Old profile found:",
-      oldProfile.user_id
-    );
 
     // =====================================
-    // OLD FILE INFORMATION
+    // OLD URL VALUES
     // =====================================
 
     let imageUrl =
-      oldProfile.profile_image || null;
+      oldProfile.avatar_url || null;
 
-    let cvUrl =
-      oldProfile.cv_url || null;
+    let resumeUrl =
+      oldProfile.resume_url || null;
 
-    let oldImagePath = null;
-
-    let oldCvPath = null;
 
     // =====================================
     // UPLOAD NEW PROFILE IMAGE
@@ -331,18 +435,14 @@ export async function PUT(request) {
       typeof profileImage !== "string" &&
       profileImage.size > 0
     ) {
-      oldImagePath =
-        getFilePath(
-          oldProfile.profile_image
-        );
-
       const extension =
         profileImage.name
           .split(".")
-          .pop();
+          .pop()
+          .toLowerCase();
 
       const filePath =
-        `${user.id}/profile-${Date.now()}.${extension}`;
+        `${user.id}/profile.${extension}`;
 
       console.log(
         "Uploading image:",
@@ -358,6 +458,8 @@ export async function PUT(request) {
           profileImage,
           {
             upsert: true,
+            contentType:
+              profileImage.type,
           }
         );
 
@@ -372,7 +474,9 @@ export async function PUT(request) {
             error:
               uploadError.message,
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
@@ -383,13 +487,23 @@ export async function PUT(request) {
         .getPublicUrl(filePath);
 
       imageUrl =
-        publicData.publicUrl;
+        `${publicData.publicUrl}?v=${Date.now()}`;
 
       console.log(
         "New image URL:",
         imageUrl
       );
+
+
+      // Delete old profile images
+      await deleteOldFiles(
+        supabase,
+        user.id,
+        "profile",
+        `profile.${extension}`
+      );
     }
+
 
     // =====================================
     // UPLOAD NEW CV
@@ -400,18 +514,14 @@ export async function PUT(request) {
       typeof cvFile !== "string" &&
       cvFile.size > 0
     ) {
-      oldCvPath =
-        getFilePath(
-          oldProfile.cv_url
-        );
-
       const extension =
         cvFile.name
           .split(".")
-          .pop();
+          .pop()
+          .toLowerCase();
 
       const filePath =
-        `${user.id}/cv-${Date.now()}.${extension}`;
+        `${user.id}/cv.${extension}`;
 
       console.log(
         "Uploading CV:",
@@ -427,6 +537,8 @@ export async function PUT(request) {
           cvFile,
           {
             upsert: true,
+            contentType:
+              cvFile.type,
           }
         );
 
@@ -441,7 +553,9 @@ export async function PUT(request) {
             error:
               uploadError.message,
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
 
@@ -451,14 +565,24 @@ export async function PUT(request) {
         .from("profile-files")
         .getPublicUrl(filePath);
 
-      cvUrl =
-        publicData.publicUrl;
+      resumeUrl =
+        `${publicData.publicUrl}?v=${Date.now()}`;
 
       console.log(
         "New CV URL:",
-        cvUrl
+        resumeUrl
+      );
+
+
+      // Delete old CV files
+      await deleteOldFiles(
+        supabase,
+        user.id,
+        "cv",
+        `cv.${extension}`
       );
     }
+
 
     // =====================================
     // UPDATE DATABASE
@@ -475,8 +599,8 @@ export async function PUT(request) {
         location: location,
         skills: skills,
         about: about,
-        profile_image: imageUrl,
-        cv_url: cvUrl,
+        avatar_url: imageUrl,
+        resume_url: resumeUrl,
         updated_at:
           new Date().toISOString(),
       })
@@ -497,7 +621,9 @@ export async function PUT(request) {
           error:
             updateError.message,
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
@@ -510,83 +636,17 @@ export async function PUT(request) {
           error:
             "Profile was not updated.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
     console.log(
-      "Database updated successfully"
+      "Database updated successfully:",
+      updatedProfile
     );
 
-    // =====================================
-    // DELETE OLD IMAGE
-    // =====================================
-
-    if (
-      oldImagePath &&
-      profileImage &&
-      typeof profileImage !== "string" &&
-      profileImage.size > 0
-    ) {
-      console.log(
-        "Deleting old image:",
-        oldImagePath
-      );
-
-      const {
-        error: deleteError,
-      } = await supabase.storage
-        .from("profile-files")
-        .remove([
-          oldImagePath,
-        ]);
-
-      if (deleteError) {
-        console.error(
-          "Old image delete error:",
-          deleteError
-        );
-      } else {
-        console.log(
-          "Old image deleted successfully"
-        );
-      }
-    }
-
-    // =====================================
-    // DELETE OLD CV
-    // =====================================
-
-    if (
-      oldCvPath &&
-      cvFile &&
-      typeof cvFile !== "string" &&
-      cvFile.size > 0
-    ) {
-      console.log(
-        "Deleting old CV:",
-        oldCvPath
-      );
-
-      const {
-        error: deleteError,
-      } = await supabase.storage
-        .from("profile-files")
-        .remove([
-          oldCvPath,
-        ]);
-
-      if (deleteError) {
-        console.error(
-          "Old CV delete error:",
-          deleteError
-        );
-      } else {
-        console.log(
-          "Old CV deleted successfully"
-        );
-      }
-    }
 
     // =====================================
     // SUCCESS RESPONSE
@@ -603,6 +663,7 @@ export async function PUT(request) {
       profile:
         updatedProfile,
     });
+
   } catch (error) {
     console.error(
       "PUT PROFILE ERROR:",
@@ -614,7 +675,9 @@ export async function PUT(request) {
         success: false,
         error: error.message,
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
